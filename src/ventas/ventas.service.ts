@@ -96,6 +96,7 @@ export class VentasService {
 
     return venta.ventadetalles;
   }
+  // metodo para crear una nueva venta con detalles y manejo de transacciones
 
   async crearVenta(createVentaDto: CreateVentaDto): Promise<Venta> {
     console.log('Iniciando creación de venta con DTO:', createVentaDto);
@@ -104,6 +105,7 @@ export class VentasService {
     await queryRunner.startTransaction();
 
     try {
+      // Buscar el cliente si se proporciona un ID de cliente
       let cliente: Cliente | null = null;
       if (createVentaDto.idCliente) {
         console.log(`Buscando cliente con ID: ${createVentaDto.idCliente}`);
@@ -120,7 +122,7 @@ export class VentasService {
         }
         console.log('Cliente encontrado:', cliente);
       }
-
+      // crea una nueva venta sin detalles aún
       const nuevaVenta = this.ventaRepository.create({
         metodoPago: createVentaDto.metodoPago || 'efectivo',
         totalVenta: 0,
@@ -146,8 +148,12 @@ export class VentasService {
         );
       }
 
+      // Procesar cada detalle de venta
+
       for (const detalle of createVentaDto.detalles) {
         console.log('Procesando detalle:', detalle);
+
+        // Buscar el producto correspondiente al detalle
         const producto = await this.productoRepository.findOne({
           where: { id: detalle.idProducto },
         });
@@ -170,6 +176,7 @@ export class VentasService {
             `La cantidad para el producto ${producto.nombre} debe ser un número positivo`,
           );
         }
+          // Verificar stock del producto antes de crear el detalle de venta
 
         if (producto.stock < cantidadNum) {
           console.log(
@@ -179,6 +186,7 @@ export class VentasService {
             `Stock insuficiente para el producto ${producto.nombre}. Disponible: ${producto.stock}, Solicitado: ${cantidadNum}`,
           );
         }
+          // Calcular subtotal y crear detalle de venta
 
         const precio = Number(producto.precio);
         const subtotal = precio * cantidadNum;
@@ -197,11 +205,14 @@ export class VentasService {
         await queryRunner.manager.save(nuevoDetalle);
         console.log('Detalle de venta guardado:', nuevoDetalle);
 
+        // Actualizar stock del producto después de crear el detalle de venta
+
         producto.stock -= cantidadNum;
         await queryRunner.manager.save(producto);
         console.log(
           `Stock actualizado para producto ${producto.nombre}: nuevo stock=${producto.stock}`,
         );
+          // Actualizar total de la venta
 
         totalVenta += subtotal;
         console.log(
@@ -229,16 +240,20 @@ export class VentasService {
           cambio,
         });
       }
+          // guardar la venta total actualizada
 
       ventaGuardada.totalVenta = totalVenta;
+      // mediante 
       await queryRunner.manager.save(ventaGuardada);
       console.log('Total de la venta actualizado:', totalVenta);
 
       await queryRunner.commitTransaction();
       console.log('Transacción confirmada. Venta creada exitosamente.');
 
+      // Devolver la venta completa con detalles y cliente
       return this.obtenerVentaPorId(ventaGuardada.id);
-    } catch (error) {
+    }
+      catch (error) {
       console.log('Ocurrió un error durante la creación de la venta:', error);
       await queryRunner.rollbackTransaction();
 
@@ -436,9 +451,12 @@ export class VentasService {
     }
   }
 
+  // Método para actualizar una venta existente
+
   async updateVenta(id: number, updateVentaDto: any): Promise<Venta> {
     console.log(`Actualizando venta con ID: ${id}`, updateVentaDto);
 
+    // buscar la venta existente con sus relaciones
     const venta = await this.ventaRepository.findOne({
       where: { id },
       relations: ['cliente', 'ventadetalles', 'ventadetalles.producto'],
@@ -461,9 +479,12 @@ export class VentasService {
       }
       if (updateVentaDto.estado === 'enviado' && !venta.fechaEnvio) {
         venta.fechaEnvio = ahora;
-        // Generar número de seguimiento si no existe
+
         if (!venta.numeroSeguimiento) {
-          venta.numeroSeguimiento = `MAJ-${Date.now().toString(36).toUpperCase()}`;
+
+           //  INSTRUCCION  para Generar número de seguimiento si no existe
+
+          venta.numeroSeguimiento = `RAM-${Date.now().toString(36).toUpperCase()}`;
         }
       }
       if (updateVentaDto.estado === 'entregado' && !venta.fechaEntrega) {
@@ -471,19 +492,21 @@ export class VentasService {
       }
     }
 
-    // Actualizar número de seguimiento si se proporciona
+    // Actualizar número de seguimiento manualmente si se proporciona en el DTO
     if (updateVentaDto.numeroSeguimiento) {
       venta.numeroSeguimiento = updateVentaDto.numeroSeguimiento;
     }
 
+    // guarda los cambios de la venta actualizada
     const ventaActualizada = await this.ventaRepository.save(venta);
     console.log(`Venta con ID ${id} actualizada exitosamente`);
 
     return this.obtenerVentaPorId(ventaActualizada.id);
   }
-
+    // Método para cambiar el estado de una venta existente
   async cambiarEstadoVenta(id: number, nuevoEstado: string): Promise<Venta> {
     console.log(`cambiarEstadoVenta: id=${id}, nuevoEstado=${nuevoEstado}`);
+    
     const venta = await this.ventaRepository.findOne({
       where: { id },
       relations: ['cliente', 'ventadetalles', 'ventadetalles.producto'],
@@ -494,6 +517,7 @@ export class VentasService {
       throw new NotFoundException(`La venta con ID ${id} no fue encontrada`);
     }
 
+    // actualiza el estado de la venta y registra las fechas correspondientes según el nuevo estado
     venta.estado = nuevoEstado;
     const ahora = new Date();
     if (nuevoEstado === 'confirmado' && !venta.fechaConfirmacion) {
@@ -501,14 +525,15 @@ export class VentasService {
     }
     if (nuevoEstado === 'enviado' && !venta.fechaEnvio) {
       venta.fechaEnvio = ahora;
+
       if (!venta.numeroSeguimiento) {
-        venta.numeroSeguimiento = `MAJ-${Date.now().toString(36).toUpperCase()}`;
+        venta.numeroSeguimiento = `RAM-${Date.now().toString(36).toUpperCase()}`;
       }
     }
     if (nuevoEstado === 'entregado' && !venta.fechaEntrega) {
       venta.fechaEntrega = ahora;
     }
-
+    // guarda los cambios de la venta actualizada
     const guardado = await this.ventaRepository.save(venta);
     console.log('Estado de venta actualizado:', guardado.estado);
     return this.obtenerVentaPorId(guardado.id);

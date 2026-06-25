@@ -55,12 +55,13 @@ export class VentasController {
   async obtenerVentaDetalles(@Param('id') id: number) {
     return this.ventasService.obtenerVentaDetalles(id);
   }
-
+  // Rutas para crear, actualizar y anular ventas
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @ApiResponse({ status: 201, description: 'Venta creada exitosamente' })
   @ApiResponse({ status: 400, description: 'Datos inválidos o error de stock' })
   async crearVenta(@Body() createVentaDto: CreateVentaDto): Promise<Venta> {
+
     return this.ventasService.crearVenta(createVentaDto);
   }
 

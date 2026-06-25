@@ -22,7 +22,9 @@ export class ProductosService {
     private marcasRepository: Repository<Marca>,
   ) {}
 
+  // Método para crear un nuevo producto
   async create(createProductoDto: CreateProductoDto): Promise<Producto> {
+    // Verificar si el producto ya existe por nombre
     const existe = await this.productosRepository.findOneBy({
       nombre: createProductoDto.nombre.trim(),
     });
@@ -36,13 +38,13 @@ export class ProductosService {
    const marca = await this.marcasRepository.findOne({
       where: { id: createProductoDto.idMarca },
     });
-
+      
     if (!marca) {
       throw new NotFoundException(
         `Marca con ID ${createProductoDto.idMarca} no encontrada`,
       );
     }
-
+      // Crear una nuevo Producto y asignar los valores
     const producto = new Producto();
     producto.nombre = createProductoDto.nombre.trim();
     producto.descripcion = createProductoDto.descripcion.trim();
@@ -57,6 +59,7 @@ export class ProductosService {
     producto.idCategoria = createProductoDto.idCategoria;
     producto.idMarca = createProductoDto.idMarca;
     producto.marca = marca;
+    // Guardar el producto en la base de datos
     return this.productosRepository.save(producto);
   }
 

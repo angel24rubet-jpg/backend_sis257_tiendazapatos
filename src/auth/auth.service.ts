@@ -34,12 +34,13 @@ export class AuthService {
     const { nombreUsuario, clave, nombre, apellido, cedula, genero, fechaNacimiento, telefono, direccion, rol } =
       authRegisterDto;
 
-    // Use a transaction so we don't leave an orphan Usuario if Cliente creation fails
+    // Iniciar una transacción para crear el usuario y el cliente (si aplica)
     try {
       const result = await this.dataSource.transaction(async (manager) => {
         const usuarioRepo = manager.getRepository(Usuario);
         const clienteRepo = manager.getRepository(Cliente);
 
+          // Verificar si el nombre de usuario ya existe
         const existe = await usuarioRepo.findOneBy({ nombreUsuario: nombreUsuario.trim() });
         if (existe) {
           throw new ConflictException('El usuario ya existe');
@@ -53,11 +54,13 @@ export class AuthService {
         const salt = await bcrypt.genSalt();
         const claveHasheada = await bcrypt.hash(claveAHashear, salt);
 
+          // Crear el usuario con la contraseña hasheada
         const nuevoUsuario = usuarioRepo.create({ 
           nombreUsuario: nombreUsuario.trim(), 
           clave: claveHasheada,
           rol: rolFinal
         });
+        // Guardar el usuario en la base de datos
         const usuarioGuardado = await usuarioRepo.save(nuevoUsuario);
 
         // Solo crear registro de Cliente si el rol es 'cliente'
